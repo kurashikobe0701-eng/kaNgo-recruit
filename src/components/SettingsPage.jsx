@@ -31,20 +31,53 @@ export default function SettingsPage() {
 
   const handleArrayChange = (key, index, value) => {
     const newArray = [...editConfig[key]];
+    const oldValue = newArray[index];
     newArray[index] = value;
-    setEditConfig({ ...editConfig, [key]: newArray });
+
+    let newConfig = { ...editConfig, [key]: newArray };
+
+    // clients が変更された場合、clientColors のキーも更新
+    if (key === 'clients' && oldValue !== value && editConfig.clientColors) {
+      const newColors = { ...editConfig.clientColors };
+      if (oldValue in newColors) {
+        const color = newColors[oldValue];
+        delete newColors[oldValue];
+        newColors[value] = color;
+      }
+      newConfig.clientColors = newColors;
+    }
+
+    setEditConfig(newConfig);
     setSaved(false);
   };
 
   const handleAddItem = (key) => {
     const newArray = [...editConfig[key], ''];
-    setEditConfig({ ...editConfig, [key]: newArray });
+    let newConfig = { ...editConfig, [key]: newArray };
+
+    // clients に新しい項目が追加される場合、clientColors にもデフォルト色を追加
+    if (key === 'clients' && editConfig.clientColors) {
+      newConfig.clientColors = { ...editConfig.clientColors, '': '#9ca3af' };
+    }
+
+    setEditConfig(newConfig);
     setSaved(false);
   };
 
   const handleRemoveItem = (key, index) => {
+    const removedItem = editConfig[key][index];
     const newArray = editConfig[key].filter((_, i) => i !== index);
-    setEditConfig({ ...editConfig, [key]: newArray });
+
+    let newConfig = { ...editConfig, [key]: newArray };
+
+    // clients から削除される項目に対応する色も削除
+    if (key === 'clients' && editConfig.clientColors && removedItem in editConfig.clientColors) {
+      const newColors = { ...editConfig.clientColors };
+      delete newColors[removedItem];
+      newConfig.clientColors = newColors;
+    }
+
+    setEditConfig(newConfig);
     setSaved(false);
   };
 
@@ -222,18 +255,21 @@ export default function SettingsPage() {
         {/* 取引先の色設定 */}
         <div style={{ marginBottom: '2rem' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '1rem' }}>取引先の色設定</h3>
-          {DEFAULT_CONFIG.clientColors && Object.entries(DEFAULT_CONFIG.clientColors).map(([name, color]) => (
-            <div key={name} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
-              <span style={{ minWidth: '100px', fontSize: '13px' }}>{name}</span>
-              <input
-                type="color"
-                value={(editConfig?.clientColors?.[name]) || color}
-                onChange={(e) => setEditConfig({ ...editConfig, clientColors: { ...(editConfig?.clientColors || {}), [name]: e.target.value } })}
-                style={{ width: '50px', height: '40px', cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(editConfig?.clientColors?.[name]) || color}</span>
-            </div>
-          ))}
+          {editConfig.clientColors && editConfig.clients && editConfig.clients.map((name) => {
+            const color = editConfig.clientColors[name] || '#9ca3af';
+            return (
+              <div key={name} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+                <span style={{ minWidth: '100px', fontSize: '13px' }}>{name || '（未設定）'}</span>
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setEditConfig({ ...editConfig, clientColors: { ...editConfig.clientColors, [name]: e.target.value } })}
+                  style={{ width: '50px', height: '40px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{color}</span>
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '2rem' }}>
