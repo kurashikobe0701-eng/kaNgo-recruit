@@ -1,7 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { ConfigContext } from '../ConfigContext';
 import { collection, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const INITIAL_MANAGE = [
   {date:'2026/01/22',name:'',status:'面接日時決定',interviewDate:'2/23',client:'SMS',staff:'田中さん',jobType:'看護師',startMonth:'6月',area:'エリア外(引越し予定)',result:'バラシ',finalResult:'',memo:''},
@@ -75,8 +76,10 @@ export default function ManagePage() {
     area: '',
     result: '',
     finalResult: '',
-    memo: ''
+    memo: '',
+    pdfs: []
   });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = loadCandidates();
@@ -169,7 +172,8 @@ export default function ManagePage() {
           area: candidate.area || '',
           result: candidate.result || '',
           finalResult: candidate.finalResult || '',
-          memo: candidate.memo || ''
+          memo: candidate.memo || '',
+          pdfs: candidate.pdfs || []
         });
         setEditingId(id);
       }
@@ -186,7 +190,8 @@ export default function ManagePage() {
         area: '',
         result: '',
         finalResult: '',
-        memo: ''
+        memo: '',
+        pdfs: []
       });
       setEditingId(null);
     }
@@ -195,6 +200,60 @@ export default function ManagePage() {
 
   const closeModal = () => {
     setModalOpen(false);
+  };
+
+  const handlePDFUpload = async (files) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+
+    try {
+      const uploadedPDFs = [];
+
+      for (const file of files) {
+        if (file.type !== 'application/pdf') {
+          alert('PDFファイルのみアップロード可能です');
+          continue;
+        }
+
+        const fileName = `${editingId || Date.now()}_${file.name}`;
+        const fileRef = ref(storage, `pdfs/${fileName}`);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+
+        uploadedPDFs.push({
+          name: file.name,
+          url: url,
+          fileName: fileName
+        });
+      }
+
+      setFormData({
+        ...formData,
+        pdfs: [...(formData.pdfs || []), ...uploadedPDFs]
+      });
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      alert('PDFのアップロードに失敗しました');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const deletePDF = async (pdfToDelete) => {
+    if (!window.confirm('このPDFを削除しますか？')) return;
+
+    try {
+      const fileRef = ref(storage, `pdfs/${pdfToDelete.fileName}`);
+      await deleteObject(fileRef);
+
+      setFormData({
+        ...formData,
+        pdfs: formData.pdfs.filter(p => p.fileName !== pdfToDelete.fileName)
+      });
+    } catch (error) {
+      console.error('Error deleting PDF:', error);
+      alert('PDFの削除に失敗しました');
+    }
   };
 
   const saveEntry = async () => {
@@ -441,9 +500,62 @@ export default function ManagePage() {
                 <input type="text" value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} />
               </div>
             </div>
+
+            {/* PDF アップロードセクション */}
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #ddd', paddingTop: '1.5rem' }}>
+              <h4 style={{ marginBottom: '1rem', fontSize: '14px', fontWeight: '600' }}>求職者情報PDF</h4>
+
+              {/* ファイルアップロード */}
+              <div style={{ marginBottom: '1rem' }}>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf"
+                  onChange={(e) => handlePDFUpload(e.target.files)}
+                  disabled={uploading}
+                  style={{ marginBottom: '8px' }}
+                />
+                {uploading && <p style={{ fontSize: '12px', color: '#666' }}>アップロード中...</p>}
+              </div>
+
+              {/* アップロード済みPDF一覧 */}
+              {formData.pdfs && formData.pdfs.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>アップロード済み: {formData.pdfs.length}件</p>
+                  {formData.pdfs.map((pdf, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px', background: '#f5f5f5', borderRadius: '4px' }}>
+                      <span style={{ flex: 1, fontSize: '13px', wordBreak: 'break-all' }}>📄 {pdf.name}</span>
+                      <button
+                        className="action-btn"
+                        onClick={() => window.open(pdf.url, '_blank')}
+                        style={{ fontSize: '12px' }}
+                      >
+                        プレビュー
+                      </button>
+                      <a
+                        href={pdf.url}
+                        download={pdf.name}
+                        className="action-btn"
+                        style={{ fontSize: '12px', textDecoration: 'none' }}
+                      >
+                        DL
+                      </a>
+                      <button
+                        className="action-btn"
+                        onClick={() => deletePDF(pdf)}
+                        style={{ color: '#ef4444', fontSize: '12px' }}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
               <button className="btn-secondary" onClick={closeModal}>キャンセル</button>
-              <button className="btn-primary" onClick={saveEntry}>保存</button>
+              <button className="btn-primary" onClick={saveEntry} disabled={uploading}>保存</button>
             </div>
           </div>
         </div>
