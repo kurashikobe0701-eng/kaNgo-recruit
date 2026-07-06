@@ -75,7 +75,8 @@ export default function ManagePage() {
     area: '',
     result: '',
     finalResult: '',
-    memo: ''
+    memo: '',
+    images: []
   });
 
   useEffect(() => {
@@ -169,7 +170,8 @@ export default function ManagePage() {
           area: candidate.area || '',
           result: candidate.result || '',
           finalResult: candidate.finalResult || '',
-          memo: candidate.memo || ''
+          memo: candidate.memo || '',
+          images: candidate.images || []
         });
         setEditingId(id);
       }
@@ -186,7 +188,8 @@ export default function ManagePage() {
         area: '',
         result: '',
         finalResult: '',
-        memo: ''
+        memo: '',
+        images: []
       });
       setEditingId(null);
     }
@@ -217,6 +220,50 @@ export default function ManagePage() {
     } catch (error) {
       console.error('Error deleting:', error);
     }
+  };
+
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > 800) {
+            height = (height * 800) / width;
+            width = 800;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+      const base64 = await compressImage(file);
+      setFormData((prev) => ({
+        ...prev,
+        images: [...(prev.images || []), { data: base64, name: file.name }]
+      }));
+    }
+    e.target.value = '';
+  };
+
+  const removeImage = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
   };
 
   const filtered = candidates.filter(c => {
@@ -439,6 +486,37 @@ export default function ManagePage() {
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label>メモ</label>
                 <input type="text" value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} />
+              </div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label>画像</label>
+                <input type="file" multiple accept="image/*" onChange={handleImageUpload} style={{ marginBottom: '0.5rem' }} />
+                {formData.images && formData.images.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginTop: '8px' }}>
+                    {formData.images.map((img, idx) => (
+                      <div key={idx} style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', background: '#f0f0f0' }}>
+                        <img src={img.data} alt={img.name} style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
+                        <button
+                          className="action-btn"
+                          onClick={() => removeImage(idx)}
+                          style={{
+                            position: 'absolute',
+                            top: '4px',
+                            right: '4px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            color: 'var(--red)',
+                            background: 'rgba(255,255,255,0.9)',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
