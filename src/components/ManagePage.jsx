@@ -63,6 +63,8 @@ export default function ManagePage() {
   const [clients, setClients] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().slice(0, 10),
     name: '',
@@ -198,6 +200,16 @@ export default function ManagePage() {
 
   const closeModal = () => {
     setModalOpen(false);
+  };
+
+  const openImageModal = (images) => {
+    setSelectedImages(images || []);
+    setImageModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setImageModalOpen(false);
+    setSelectedImages([]);
   };
 
   const saveEntry = async () => {
@@ -370,6 +382,7 @@ export default function ManagePage() {
                         <tr>
                           <th>依頼日</th>
                           <th>求職者名</th>
+                          <th>画像</th>
                           <th>状況</th>
                           <th>面接日</th>
                           <th>取引先</th>
@@ -388,6 +401,19 @@ export default function ManagePage() {
                           <tr key={c.id}>
                             <td>{c.date || '—'}</td>
                             <td><strong>{c.name || '—'}</strong></td>
+                            <td>
+                              {c.images && c.images.length > 0 ? (
+                                <button
+                                  className="action-btn"
+                                  onClick={() => openImageModal(c.images)}
+                                  style={{ fontSize: '12px', padding: '4px 8px' }}
+                                >
+                                  📷 {c.images.length}
+                                </button>
+                              ) : (
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>—</span>
+                              )}
+                            </td>
                             <td>{statusBadge(c.status)}</td>
                             <td>{c.interviewDate || '—'}</td>
                             <td>{clientBadge(c.client)}</td>
@@ -522,6 +548,31 @@ export default function ManagePage() {
             <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
               <button className="btn-secondary" onClick={closeModal}>キャンセル</button>
               <button className="btn-primary" onClick={saveEntry}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imageModalOpen && (
+        <div className="modal-overlay" style={{ display: 'flex' }} onClick={(e) => {
+          if (e.target.className === 'modal-overlay') closeImageModal();
+        }}>
+          <div className="modal" style={{ width: '90%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3>画像ギャラリー</h3>
+            {selectedImages && selectedImages.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px', marginBottom: '1rem' }}>
+                {selectedImages.map((img, idx) => (
+                  <div key={idx} style={{ borderRadius: '8px', overflow: 'hidden', background: '#f0f0f0' }}>
+                    <img src={img.data} alt={img.name} style={{ width: '100%', height: 'auto', maxHeight: '400px', objectFit: 'contain' }} />
+                    <p style={{ padding: '8px', fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>{img.name}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">画像がありません</div>
+            )}
+            <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="btn-primary" onClick={closeImageModal}>閉じる</button>
             </div>
           </div>
         </div>
