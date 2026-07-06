@@ -85,6 +85,11 @@ export default function ManagePage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (config.statuses) setStatuses(config.statuses);
+    if (config.clients) setClients(config.clients);
+  }, [config]);
+
   const initializeData = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, 'manage'));

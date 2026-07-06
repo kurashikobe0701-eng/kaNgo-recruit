@@ -59,6 +59,10 @@ export default function HiredPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (config.clients) setClients(config.clients);
+  }, [config]);
+
   const extractYear = (dateStr) => {
     const match = (dateStr || '').match(/(\d{4})/);
     return match ? match[1] : '—';
